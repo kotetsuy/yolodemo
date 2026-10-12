@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ja">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>YOLO26 · GPU / NPU</title><link rel="stylesheet" href="/static/style.css"></head>
+<body>
+<main>
+  <section class="stage" aria-label="物体検出映像">
+    <img id="video" src="/stream.mjpg" alt="YOLO26nの物体検出映像">
+    <div class="telemetry" aria-live="off"><span id="backend">準備中</span><div><b id="fps">—</b><span class="unit">推論FPS</span></div><small>最新フレームを反復推論</small></div>
+    <div id="placeholder"><span class="pulse"></span><h2 id="message">モデルを準備しています</h2><p id="detail">映像と推論結果を読み込み中</p></div>
+    <div class="source"><span id="source">入力を準備中</span><span id="input-fps">—</span></div>
+  </section>
+  <section class="controls">
+    <div class="title"><span class="eyebrow">LIVE OBJECT DETECTION</span><h1>YOLO26<span>n</span></h1><p>448 × 448 · batch 1</p></div>
+    <div class="selector"><div class="labels"><label for="backend-slider">GPU <small>FP16</small></label><label for="backend-slider">NPU <small>A16W8</small></label></div><input id="backend-slider" aria-label="GPU または NPU を選択" type="range" min="0" max="1" step="1" value="0" disabled><div id="switch-status" role="status">GPU / NPUを準備中</div></div>
+    <div class="readiness"><div><i id="gpu-dot"></i><span>GPU</span><small id="gpu-state">準備中</small></div><div><i id="npu-dot"></i><span>NPU</span><small id="npu-state">準備中</small></div></div>
+  </section>
+  <section class="camera-controls" aria-label="映像入力の選択">
+    <div><label for="camera-select">映像入力</label><select id="camera-select"><option value="auto">自動（優先カメラ）</option><option value="playlist">動画プレイリスト</option></select></div>
+    <p id="camera-status" role="status">カメラを確認しています</p>
+  </section>
+  <p id="error" role="alert"></p>
+  <footer><span>入力・表示FPSと推論FPSは異なります · <a href="/license" target="_blank" rel="noopener">AGPL-3.0 · 無保証</a> · <a href="/source.zip">ソースコードを取得</a></span><a href="/credits" target="_blank" rel="noopener">動画の出典 ↗</a></footer>
+</main>
+<script src="/static/app.js"></script>
+</body></html>

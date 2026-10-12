@@ -1,0 +1,24 @@
+YOLO26n GPU/NPU Demo
+Copyright 2026 YOLO26n GPU/NPU Demo contributors
+
+This application is distributed under the GNU Affero General Public License,
+version 3 only (AGPL-3.0-only). See LICENSE. No warranty is provided.
+License and notice update: 2026-10-12.
+Third-party components and model artifacts retain their own licenses.
+
+Camera discovery and format negotiation in app/cameras.py and app/capture.py
+were adapted for this demo from the Apache-2.0-licensed LLaVA-NPU project:
+https://github.com/kotetsuy/LLaVA-NPU
+Sources: src/capture/device_manager.py and src/capture/format_negotiator.py.
+The adaptations add this application's input switching, configuration and
+process-isolated camera capture. Original Apache-2.0 terms and attribution
+remain applicable to the upstream material; see licenses/Apache-2.0.txt.
+
+Ultralytics YOLO26 code and weights are third-party components available under
+AGPL-3.0 or an applicable Ultralytics Enterprise license. Exported, quantized
+and partitioned derivatives retain the upstream model conditions. No model
+weights or generated ONNX files are included in Git.
+See https://www.ultralytics.com/license for the upstream licensing terms.
+
+Publishing source or generating models locally does not replace compliance
+with third-party model, dataset and vendor SDK terms.

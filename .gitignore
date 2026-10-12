@@ -1,0 +1,33 @@
+# Local environments and runtime caches
+.venv/
+.venv-quant/
+.python/
+.cache/
+__pycache__/
+.pytest_cache/
+*.pyc
+*.tmp
+
+# Generated model metadata contains local paths; regenerate with create_models.sh
+/models/
+/quantized_info.csv
+
+# Keep written reports; exclude camera images, raw logs, profiles and status dumps
+/results/*
+!/results/*.md
+!/results/*/
+/results/**/*
+!/results/**/*.md
+!/results/**/
+
+# Local secrets and editor state
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.idea/
+.vscode/
+
+# Video
+/videos/

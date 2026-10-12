@@ -1,0 +1,17 @@
+camera:
+  # ~/LLaVA-NPU の優先カメラを引き継ぐ。未接続の項目は無視する。
+  preferred:
+    - name: 2K USB Camera
+      by_id: usb-*2K_USB_Camera*
+    - name: 2K USB Camera
+      vid_pid: "2bdf:0297"
+    - name: ELECOM 2MP Webcam
+      by_id: usb-Alcor_Micro__Corp._ELECOM_2MP_Webcam-video-index0
+  fallback: any
+  preempt: true
+  preempt_settle_sec: 1.0
+  format:
+    width: 1920
+    height: 1080
+    fps: 30
+    fourcc_priority: [MJPG, YUYV]
