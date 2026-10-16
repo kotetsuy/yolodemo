@@ -12,6 +12,8 @@ class NPU:
     boundary = 'cached normalized CPU FP32 input -> external INT16 quantization -> ORT session.run -> CPU stable Top-k'
 
     def __init__(self, report_dir):
+        from app.workers.npu_output_sync import ensure_output_sync
+        self.output_sync = ensure_output_sync()
         import onnxruntime as ort
         model = Path(os.environ.get('NPU_MODEL', str(MODEL)))
         selection = ROOT / 'models/npu/selection.json'
@@ -35,6 +37,7 @@ class NPU:
         so.intra_op_num_threads = 4
         self.session = ort.InferenceSession(str(model), so,
             providers=['VitisAIExecutionProvider', 'CPUExecutionProvider'], provider_options=[opts, {}])
+        self.output_sync.verify_loaded()
         self.session.disable_fallback()
         if 'VitisAIExecutionProvider' not in self.session.get_providers():
             raise RuntimeError('NPU session fell back to CPU')
@@ -96,8 +99,10 @@ class NPU:
                 self.infer()
             self.info['validation_passed'] = True
             self.info['alternating_inputs_passed'] = True
+            self.info['output_sync'] = self.output_sync.info()
             write_json(report_dir / 'npu-validation.json', self.info)
         except Exception as exc:
+            self.info['output_sync'] = self.output_sync.info()
             write_json(report_dir / 'npu-validation.json', dict(self.info, validation_passed=False, error=str(exc)))
             raise
 
@@ -106,7 +111,7 @@ class NPU:
 
     def infer(self):
         quantize(self.x, self.meta['scale'], self.meta['zero_point'], self.scratch, self.q)
-        self.raw = self.session.run(None, {self.input_name: self.q})
+        self.raw = self.output_sync.run(self.session, {self.input_name: self.q})
         if self.head:
             scores=self.head.run(None,dict(zip(self.meta['cpu_head_input_names'],self.raw[1:])))[0]
             self.output=decode(self.raw[0],scores)
@@ -117,4 +122,5 @@ class NPU:
         return self.output.copy()
 
     def close(self):
-        pass
+        self.head = None
+        self.session = None

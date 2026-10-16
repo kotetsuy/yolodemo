@@ -20,6 +20,14 @@ def main():
     p.add_argument('--bus', required=True)
     p.add_argument('--report-dir', type=Path, required=True)
     args = p.parse_args()
+    if args.backend == 'npu':
+        try:
+            from app.workers.npu_output_sync import bootstrap_output_sync
+            bootstrap_output_sync()
+        except Exception as exc:
+            emit(kind='error', state='error', backend='npu', error=str(exc))
+            traceback.print_exc()
+            return 1
     stopping = False
     def stop(*_):
         nonlocal stopping

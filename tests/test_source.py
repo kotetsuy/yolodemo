@@ -35,7 +35,8 @@ def test_license_and_source_http_routes_without_starting_inference():
             with ZipFile(BytesIO(response.read())) as archive:
                 names=set(archive.namelist())
                 assert {'yolodemo/LICENSE','yolodemo/NOTICE','yolodemo/app/server.py',
-                        'yolodemo/licenses/Apache-2.0.txt'}<=names
+                        'yolodemo/licenses/Apache-2.0.txt',
+                        'yolodemo/app/workers/npu_output_sync.cpp'}<=names
                 assert not any('/models/' in name or '/.cache/' in name for name in names)
     finally:
         server.shutdown();server.server_close();thread.join(2)

@@ -7,7 +7,7 @@ from zipfile import ZipFile, ZIP_DEFLATED
 ROOT_FILES = ('LICENSE', 'NOTICE', 'README.md', 'READMEJ.md', 'HANDOFF.md',
               '.gitignore', 'camera.yaml', 'requirements.txt', 'requirements-quant.txt',
               'create_models.sh', 'start_all.sh', 'stop_all.sh')
-SOURCE_TYPES = {'.py', '.sh', '.html', '.css', '.js', '.txt'}
+SOURCE_TYPES = {'.py', '.sh', '.html', '.css', '.js', '.txt', '.cpp'}
 
 
 def source_archive(root):

@@ -15,6 +15,8 @@ if __name__ == '__main__':
         from app.workers.gpu import GPU
         engine = GPU(folder)
     else:
+        from app.workers.npu_output_sync import bootstrap_output_sync
+        bootstrap_output_sync()
         from app.workers.npu import NPU
         engine = NPU(folder)
     print(engine.info)

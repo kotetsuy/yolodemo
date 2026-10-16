@@ -80,7 +80,7 @@ cd ~/yolodemo
 
 After preparing the prerequisites and models above, Chrome opens `http://127.0.0.1:8000`, and the server runs in the background. On the first run, the script creates the web virtual environment and generates missing 448 models using `create_models.sh`. Both workers validate and warm up their models at startup. Initial NPU compilation can take some time.
 
-Startup completes NPU validation first, then initializes the GPU. Camera/video capture and inference start after both are ready. This sequence avoids the inconsistent NPU intermediate outputs observed during simultaneous GPU/NPU initialization on this APU. The backend slider is disabled during preparation and becomes available when both workers are ready.
+Startup completes NPU validation first, then initializes the GPU. Camera/video capture and inference start after both are ready. The backend slider is disabled during preparation and becomes available when both workers are ready. Alternating-input output mismatches also occurred with the NPU alone; the output synchronization fix below addresses that failure.
 
 ```bash
 ./stop_all.sh
@@ -152,6 +152,19 @@ The NPU retains yolofast's **A16W8, per-channel, MinMax, and CLE** settings and 
 The reference is CPU execution of the original 448 quantized model. The criteria remain **a threshold of 0.25, matching detection counts and classes, IoU≥0.9, and score differences≤0.05**. The selected model passed on three real images and five synthetic inputs, with a maximum score difference of 0.046207. Startup also checks reproducibility with alternating inputs. This validation is not an mAP measurement.
 
 SHA-256 hashes are checked for the model, CPU head, and reference model. The selected model is recorded in `models/npu/selection.json`; NPU compilation caches are stored by model hash under `.cache/npu-448/`.
+
+The NPU worker also synchronizes output buffers with `XCL_BO_SYNC_BO_FROM_DEVICE` immediately after NPU completion and before CPU depadding. A local compatibility library implements this fix for the tested Ryzen AI 1.8 / XRT 2.25.37 build. The NPU entry point checks the runtime library hashes, builds the library under `.cache/native/npu-output-sync/` using `g++` and `/opt/xilinx/xrt/include`, and re-executes the NPU process once with that library preloaded. SDK and driver files are unchanged. Every inference verifies that the synchronization ran; each runner invocation releases its retained buffer handles before returning. Startup reports record the library hashes, synchronization counts, and outstanding buffer count under `output_sync`.
+
+The verified runtime fingerprints are in `app/workers/npu_output_sync.py`. An SDK/XRT update requires compatibility validation before updating those fingerprints; an unrecognized build stops with an explicit error. Custom NPU-only entry points must call `bootstrap_output_sync()` before opening devices or IPC; the demo worker and `scripts/validate_models.py npu` already do this. GPU and web processes do not inherit the NPU preload.
+
+To repeat the hardware regression across five NPU session lifetimes and 10,000 alternating-input inferences:
+
+```bash
+source ~/ryzenai_1_8/setup_ryzenai_env.sh
+PYTHONPATH="$PWD" OPENBLAS_NUM_THREADS=1 python scripts/check_npu_output_sync.py
+```
+
+This checks exact raw-output and detection equality, the original startup validation, synchronization coverage, and buffer release after each session. Results are saved to `results/npu-permanent-fix/regression/report.json`.
 
 ## Validation and Performance Measurement
 
