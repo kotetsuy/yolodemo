@@ -40,9 +40,10 @@ def main():
     p.add_argument('--seconds',type=float,default=30)
     p.add_argument('--repeats',type=int,default=3)
     p.add_argument('--no-stream',action='store_true')
+    p.add_argument('--gpu-target',type=float,default=600)
     p.add_argument('--output',type=Path)
     a=p.parse_args()
-    if a.seconds<=0 or a.repeats<1:p.error('Positive seconds and repeats required')
+    if a.seconds<=0 or a.repeats<1 or not 0<a.gpu_target<float('inf'):p.error('Positive finite GPU target, seconds and repeats required')
     out=a.output or ROOT/'results'/('benchmark-'+time.strftime('%Y%m%d-%H%M%S')+'.json')
     stop=threading.Event();stats={'stream_bytes':0}
     def stream():
@@ -86,7 +87,7 @@ def main():
                     epoch=first['epoch'],size=448,boundary=w['info']['boundary'],samples=samples)
                 runs.append(row);report['runs'].append(row)
                 report['backends'][backend]=dict(info=w['info'],pooled_fps=sum(x['frames'] for x in runs)/sum(x['elapsed_s'] for x in runs),
-                    target=300 if backend=='gpu' else 60)
+                    target=a.gpu_target if backend=='gpu' else 60)
                 print(f'{backend} trial {trial}: {row["fps"]:.2f} FPS',flush=True)
                 write_json(out,report)
         report['status']='complete'

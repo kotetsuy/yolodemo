@@ -84,7 +84,7 @@ class Coordinator:
                    YOLO_CONFIG_DIR=str(ROOT / '.cache/ultralytics'), OPENBLAS_NUM_THREADS='1')
         args = ['-m', 'app.workers.run', '--backend', name, '--bus', str(self.path), '--report-dir', str(self.folder)]
         if name == 'gpu':
-            cmd = [str(YOLOFAST / '.venv-rocm10-py314/bin/python'), *args]
+            cmd = [str(YOLOFAST / '.venv-migraphx/bin/python'), *args]
         else:
             setup = Path.home() / 'ryzenai_1_8/setup_ryzenai_env.sh'
             # Shell quoting is necessary for paths; source changes only this child.

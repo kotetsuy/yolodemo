@@ -52,7 +52,7 @@ if [[ "$task_setup_only" == 1 ]]; then
   "$task_quant_python" -c 'from quark.onnx import ModelQuantizer; import cv2, onnx, onnxruntime; print("Local quantization environment: OK")'
   exit 0
 fi
-task_gpu_python="$YOLOFAST_DIR/.venv-rocm10-py314/bin/python"
+task_gpu_python="$YOLOFAST_DIR/.venv-migraphx/bin/python"
 task_npu_setup="$HOME/ryzenai_1_8/setup_ryzenai_env.sh"
 for task_executable in "$task_export_python" "$task_quant_python" "$task_gpu_python"; do
   [[ -x "$task_executable" ]] || { echo "Missing Python environment: $task_executable" >&2; exit 1; }
@@ -60,7 +60,8 @@ done
 [[ -f "$task_npu_setup" ]] || { echo "Missing NPU setup: $task_npu_setup" >&2; exit 1; }
 command -v uv >/dev/null || { echo 'Missing uv' >&2; exit 1; }
 "$task_export_python" -c 'import torch, ultralytics, onnx'
-"$task_gpu_python" -c 'import torch, ultralytics'
+"$task_gpu_python" -c 'import torch, ultralytics, onnxruntime; from ultralytics.nn.backends.onnx import ONNXBackend'
+[[ -f "$YOLOFAST_DIR/models/migraphx/yolo26n-448-fp32.onnx" ]] || { echo 'Missing MIGraphX FP32 model. Run scripts/export_migraphx.sh in yolofast first.' >&2; exit 1; }
 "$task_quant_python" - <<'PY'
 import json, os
 from pathlib import Path

@@ -67,7 +67,7 @@ def output_pair(raw, meta):
     return raw[0],score_output(scores,meta)
 
 
-def compare_detections(reference, candidate):
+def compare_detections(reference, candidate, min_iou=.9, max_score_diff=.05):
     rd, gd = reference[reference[:, 4] >= .25], candidate[candidate[:, 4] >= .25]
     valid = bool(np.isfinite(candidate).all() and np.all(gd[:, 2:4] >= gd[:, :2])
                  and np.all(gd[:, 5] == np.rint(gd[:, 5])))
@@ -87,7 +87,7 @@ def compare_detections(reference, candidate):
         iou, j = max(choices)
         used.add(j)
         matches.append(dict(iou=iou, score_diff=float(abs(row[4] - gd[j, 4]))))
-    passed = valid and len(rd) == len(gd) and all(m['iou'] >= .9 and m['score_diff'] is not None and m['score_diff'] <= .05 for m in matches)
+    passed = valid and len(rd) == len(gd) and all(m['iou'] >= min_iou and m['score_diff'] is not None and m['score_diff'] <= max_score_diff for m in matches)
     return dict(passed=bool(passed), geometry_valid=valid, reference_count=len(rd), candidate_count=len(gd), matches=matches)
 
 

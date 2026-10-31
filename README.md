@@ -1,5 +1,16 @@
 # YOLO26n GPU/NPU Demo
 
+## GPU update (2026-10-31)
+
+The GPU worker now uses yolofast's fixed-shape **FP32 ONNX + MIGraphX** path with DLPack IO binding, a reusable GPU input buffer, and native HIP graph replay. It requires `~/yolofast/.venv-migraphx` and `~/yolofast/models/migraphx/yolo26n-448-fp32.onnx` (or the equivalent paths under `YOLOFAST_DIR`). Prepare these in yolofast with `bash scripts/setup_migraphx.sh` and `bash scripts/export_migraphx.sh` before starting the demo. Automatic runtime installation is disabled; CPU fallback is rejected. GPU startup compares detections against FP32 PyTorch on the existing smoke inputs.
+
+This supersedes the older GPU FP16/PyTorch graph descriptions and GPU runtime paths below; the NPU workflow is unchanged. yolofast reports 609.4 FPS over five minutes for inference alone. That excludes input copies, preprocessing, output transfers and streaming, so it is not a live demo performance guarantee. The live benchmark now defaults to a 600 FPS GPU target:
+
+```bash
+.venv/bin/python scripts/benchmark_demo.py --backends gpu --seconds 30 --repeats 3
+```
+
+
 [English](README.md) | [日本語](READMEJ.md)
 
 A local object detection demo for the Radeon GPU and Ryzen AI NPU. View live detections in Chrome, switch between backends with a two-position slider, and choose one of several connected USB cameras. Both backends use **448×448 input with batch size 1**, while the displayed video retains its original aspect ratio.
@@ -34,7 +45,7 @@ This table matches the yolodemo additional-environment section in the upstream R
 
 | Purpose | Environment |
 |---|---|
-| GPU | `~/yolofast/.venv-rocm10-py314`, PyTorch ROCm, Radeon 8060S |
+| GPU | `~/yolofast/.venv-migraphx`, PyTorch ROCm, Radeon 8060S |
 | ONNX export | `~/yolofast/.venv-npu-export` |
 | Quantization | `./.venv-quant`, AMD Quark |
 | NPU | `~/ryzenai_1_8/setup_ryzenai_env.sh`, VitisAI EP, `/dev/accel/accel0` |
@@ -145,7 +156,7 @@ Backend switching waits for the previous worker to stop processing, updates the 
 
 ## Inference and Numerical Validation
 
-The GPU uses an FP16 HIP graph and increments its counter after GPU synchronization completes. Top-k results with equal scores are ordered stably by index without changing score values. At startup, eight inputs are used to check agreement between ordinary forward execution, graph replay, and the CPU's stable Top-k decoder.
+The GPU uses FP32 MIGraphX with native HIP graph replay and increments its counter after GPU synchronization. Startup compares eight inputs against FP32 PyTorch at confidence 0.25, requiring matching detection counts and classes, IoU≥0.95 and score differences≤0.03. GPU model hashes and runtime versions are saved in the validation report.
 
 The NPU retains yolofast's **A16W8, per-channel, MinMax, and CLE** settings and its 60 calibration images. It preserves the QDQ parameters recalibrated at 448, runs the backbone and box inference on the NPU, and runs the classification head and its preceding SiLU on the CPU. This arrangement improved the score differences that exceeded the acceptance criteria in the full-NPU configuration. The displayed loop speed includes the CPU head, INT16 input quantization, and Top-k.
 
