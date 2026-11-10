@@ -18,6 +18,11 @@ SUPPORTED = {
     'provider': 'cf5206d4810e503e017dfac1fb0cfe89789ff9c3eae57d6db1682a040d28a09b',
     'xrt': 'acbc609939c35e9edc0aed3709a0b5bdc6d0b9e5f53e9e6d2e0a94100ada2e97',
 }
+SUPPORTED_19 = {
+    'runtime': '18a6433360ab34413ab0ee38389fc53b31455fa61f328d5200c75166f30096bc',
+    'provider': 'd9d396293b2c9f32596007b5519ef1097ac138e0d2d54728c104284ccbf51b2f',
+    'xrt': 'a21dd07e9e247b6a48566ee32c6bcbb0a7040cc9df4dea933e895dbeeb48bae2',
+}
 XRT = Path('/opt/xilinx/xrt')
 _lock = threading.Lock()
 _instance = None
@@ -25,14 +30,14 @@ _instance = None
 
 def verify_libraries(libraries):
     hashes = {key: sha256(path) for key, path in libraries.items()}
-    if hashes != SUPPORTED:
+    if hashes != SUPPORTED and hashes != SUPPORTED_19:
         raise RuntimeError('NPU output sync: unvalidated runtime libraries; '
                            'validate this SDK/XRT version before updating the compatibility shim')
     return hashes
 
 
 def build_library(hashes):
-    source = Path(__file__).with_suffix('.cpp')
+    source = Path(__file__).with_name('npu_output_sync_19.cpp') if hashes == SUPPORTED_19 else Path(__file__).with_suffix('.cpp')
     header = XRT/'include/xrt/xrt_bo.h'
     key = hashlib.sha256((sha256(source)+sha256(header)+str(sorted(hashes.items()))).encode()).hexdigest()
     folder = ROOT/'.cache/native/npu-output-sync'/key
@@ -81,9 +86,11 @@ def bootstrap_output_sync():
 
 
 class OutputSync:
+    version_19 = False
     def __init__(self):
         self.libraries = runtime_libraries()
         self.hashes = verify_libraries(self.libraries)
+        self.version_19 = self.hashes == SUPPORTED_19
         self.path = build_library(self.hashes)
         if os.environ.get('YOLODEMO_NPU_OUTPUT_SYNC') != str(self.path):
             raise RuntimeError('NPU output sync: call bootstrap_output_sync() in the NPU entry point')
@@ -94,8 +101,21 @@ class OutputSync:
         self.native.yolodemo_npu_sync_stats.restype = None
         self.native.yolodemo_npu_sync_original_library.argtypes = [ctypes.c_int]
         self.native.yolodemo_npu_sync_original_library.restype = ctypes.c_char_p
+        if self.version_19:
+            self.native.yolodemo_npu_sync_begin.restype = None
+            self.native.yolodemo_npu_sync_end.restype = None
 
     def verify_loaded(self):
+        if self.version_19:
+            maps = Path('/proc/self/maps').read_text().splitlines()
+            paths = {line.split(maxsplit=5)[-1] for line in maps if '/' in line and 'libonnxruntime_vitisai_ep.so' in line}
+            if not paths or any(sha256(path) != self.hashes['provider'] for path in paths):
+                raise RuntimeError('NPU output sync: unexpected Vitis AI provider')
+            for index in (0, 1):
+                path = self.native.yolodemo_npu_sync_original_library(index)
+                if not path or sha256(os.fsdecode(path)) != self.hashes['xrt']:
+                    raise RuntimeError('NPU output sync: unexpected XRT runtime')
+            return
         for index, key in enumerate(('provider', 'provider', 'xrt')):
             path = self.native.yolodemo_npu_sync_original_library(index)
             if not path or sha256(os.fsdecode(path)) != self.hashes[key]:
@@ -108,7 +128,14 @@ class OutputSync:
 
     def run(self, session, inputs):
         before = self.stats()
-        raw = session.run(None, inputs)
+        if self.version_19:
+            self.native.yolodemo_npu_sync_begin()
+            try:
+                raw = session.run(None, inputs)
+            finally:
+                self.native.yolodemo_npu_sync_end()
+        else:
+            raw = session.run(None, inputs)
         after = self.stats()
         completed = after['npu_completions']-before['npu_completions']
         if (not completed or after['output_syncs']-before['output_syncs'] != completed

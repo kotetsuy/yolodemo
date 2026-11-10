@@ -9,7 +9,7 @@ case "${1:-}" in
 Usage: ./create_models.sh [--check | --setup-quant]
 
 Creates the local .venv-quant quantization environment.
-Uses existing export/GPU environments in ~/yolofast and NPU setup in ~/ryzenai_1_8.
+Uses existing export/GPU environments in ~/yolofast and Ryzen AI 1.9 NPU setup.
 YOLOFAST_DIR may override ~/yolofast. Does not download weights or datasets.
 --check checks prerequisites without installing packages or creating models.
 --setup-quant installs only the local quantization environment and then exits.
@@ -53,7 +53,7 @@ if [[ "$task_setup_only" == 1 ]]; then
   exit 0
 fi
 task_gpu_python="$YOLOFAST_DIR/.venv-migraphx/bin/python"
-task_npu_setup="$HOME/ryzenai_1_8/setup_ryzenai_env.sh"
+task_npu_setup="$PWD/scripts/setup_ryzenai_1_9.sh"
 for task_executable in "$task_export_python" "$task_quant_python" "$task_gpu_python"; do
   [[ -x "$task_executable" ]] || { echo "Missing Python environment: $task_executable" >&2; exit 1; }
 done

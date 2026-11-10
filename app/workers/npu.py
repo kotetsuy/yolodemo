@@ -27,7 +27,7 @@ class NPU:
         self.meta = json.loads(model.with_suffix('.json').read_text())
         if self.meta.get('status') != 'complete' or self.meta['model_sha256'] != sha256(model):
             raise RuntimeError('NPU model provenance is invalid; run scripts/prepare_models.sh')
-        cache = ROOT / '.cache/npu-448' / sha256(model)
+        cache = ROOT / '.cache/npu-448' / sha256(model) / self.output_sync.hashes['provider'] / self.output_sync.hashes['xrt']
         cache.mkdir(parents=True, exist_ok=True)
         level = os.environ.get('NPU_OPT_LEVEL', '2')
         cache = cache / f'opt{level}'

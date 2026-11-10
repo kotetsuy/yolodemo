@@ -26,7 +26,7 @@ The demo requests **1920×1080 at 30 FPS** from the camera and shows inference F
 
 The [yolofast_pub README](https://github.com/kotetsuy/yolofast_pub/blob/main/README.md) now covers both its standalone ONNX environment and **additional environments for yolodemo**. For this demo, follow its additional-environment section to prepare the GPU and ONNX export environments, then run `./create_models.sh --setup-quant` here. The standalone `~/yolofast/.venv` is a separate environment and is not used by this demo.
 
-The documented demo paths match the scripts: GPU and export under `~/yolofast`, quantization under this repository's `.venv-quant`, and NPU setup at `~/ryzenai_1_8/setup_ryzenai_env.sh`. `YOLOFAST_DIR` changes the yolofast root only. Weights, the original 60-image calibration recipe, images under `~/yolotest`, and the NPU SDK still require separate preparation. The public ONNX image manifest is not a replacement for this demo's recipe. The newly documented independent CPU export environment must pass model generation and hardware validation before its outputs are adopted; it was not used for the previously recorded measurements.
+The documented demo paths match the scripts: GPU and export under `~/yolofast`, quantization under this repository's `.venv-quant`, and NPU setup at `scripts/setup_ryzenai_1_9.sh`. `YOLOFAST_DIR` changes the yolofast root only. Weights, the original 60-image calibration recipe, images under `~/yolotest`, and the NPU SDK still require separate preparation. The public ONNX image manifest is not a replacement for this demo's recipe. The newly documented independent CPU export environment must pass model generation and hardware validation before its outputs are adopted; it was not used for the previously recorded measurements.
 
 LLaVA-NPU is a reference project and does not need to be running.
 
@@ -48,7 +48,7 @@ This table matches the yolodemo additional-environment section in the upstream R
 | GPU | `~/yolofast/.venv-migraphx`, PyTorch ROCm, Radeon 8060S |
 | ONNX export | `~/yolofast/.venv-npu-export` |
 | Quantization | `./.venv-quant`, AMD Quark |
-| NPU | `~/ryzenai_1_8/setup_ryzenai_env.sh`, VitisAI EP, `/dev/accel/accel0` |
+| NPU | `scripts/setup_ryzenai_1_9.sh`, VitisAI EP, `/dev/accel/accel0` |
 | Weights | `~/yolofast/models/yolo26n.pt` |
 | Calibration recipe | `~/yolofast/distribute/models/npu/accuracy95/perchannel/yolo26n-640-a16w8.json` and its specified 60 images |
 | Web | `uv`, Python 3.12, `requirements.txt`, Chrome |
@@ -164,14 +164,14 @@ The reference is CPU execution of the original 448 quantized model. The criteria
 
 SHA-256 hashes are checked for the model, CPU head, and reference model. The selected model is recorded in `models/npu/selection.json`; NPU compilation caches are stored by model hash under `.cache/npu-448/`.
 
-The NPU worker also synchronizes output buffers with `XCL_BO_SYNC_BO_FROM_DEVICE` immediately after NPU completion and before CPU depadding. A local compatibility library implements this fix for the tested Ryzen AI 1.8 / XRT 2.25.37 build. The NPU entry point checks the runtime library hashes, builds the library under `.cache/native/npu-output-sync/` using `g++` and `/opt/xilinx/xrt/include`, and re-executes the NPU process once with that library preloaded. SDK and driver files are unchanged. Every inference verifies that the synchronization ran; each runner invocation releases its retained buffer handles before returning. Startup reports record the library hashes, synchronization counts, and outstanding buffer count under `output_sync`.
+The NPU worker uses a version-specific output synchronization shim for the verified Ryzen AI 1.8 / XRT 2.25.37 and Ryzen AI 1.9 / XRT 2.26.89 runtimes. For 1.9 it synchronizes output buffers after XRT execution completes, before CPU processing. Startup checks runtime hashes, and each inference verifies synchronization. NPU caches are separated by runtime hashes. The 1.9 implementation passed CPU-reference checks and 10,000 alternating-input repetitions across five sessions.
 
 The verified runtime fingerprints are in `app/workers/npu_output_sync.py`. An SDK/XRT update requires compatibility validation before updating those fingerprints; an unrecognized build stops with an explicit error. Custom NPU-only entry points must call `bootstrap_output_sync()` before opening devices or IPC; the demo worker and `scripts/validate_models.py npu` already do this. GPU and web processes do not inherit the NPU preload.
 
 To repeat the hardware regression across five NPU session lifetimes and 10,000 alternating-input inferences:
 
 ```bash
-source ~/ryzenai_1_8/setup_ryzenai_env.sh
+source scripts/setup_ryzenai_1_9.sh
 PYTHONPATH="$PWD" OPENBLAS_NUM_THREADS=1 python scripts/check_npu_output_sync.py
 ```
 

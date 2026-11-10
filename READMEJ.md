@@ -26,7 +26,7 @@ Radeon GPUとRyzen AI NPUを切り替えて物体検出を行うローカルデ�
 
 [yolofast_pubの最新README](https://github.com/kotetsuy/yolofast_pub/blob/main/README.md) には、公開版単体のONNX環境に加え、**yolodemo用の追加環境**の手順が記載されています。このデモでは追加環境の節に従ってGPU・ONNX出力環境を用意し、このリポジトリで `./create_models.sh --setup-quant` を実行します。公開版単体の `~/yolofast/.venv` は別用途で、このデモは参照しません。
 
-記載の配置は現在のスクリプトと一致します。GPU・ONNX出力は `~/yolofast` 内、量子化はこのリポジトリの `.venv-quant`、NPU設定は `~/ryzenai_1_8/setup_ryzenai_env.sh` です。`YOLOFAST_DIR` が変更するのはyolofastのルートだけです。重み、元の60画像の校正レシピ、`~/yolotest` 内の画像、NPU SDKは別途用意する必要があります。公開版の画像マニフェストはデモのレシピの代用にはなりません。新たに記載された独立CPUエクスポート環境の生成物は、モデル生成・実機検証に合格してから採用してください。過去の測定記録はこの新環境で測定したものではありません。
+記載の配置は現在のスクリプトと一致します。GPU・ONNX出力は `~/yolofast` 内、量子化はこのリポジトリの `.venv-quant`、NPU設定は `scripts/setup_ryzenai_1_9.sh` です。`YOLOFAST_DIR` が変更するのはyolofastのルートだけです。重み、元の60画像の校正レシピ、`~/yolotest` 内の画像、NPU SDKは別途用意する必要があります。公開版の画像マニフェストはデモのレシピの代用にはなりません。新たに記載された独立CPUエクスポート環境の生成物は、モデル生成・実機検証に合格してから採用してください。過去の測定記録はこの新環境で測定したものではありません。
 
 LLaVA-NPUは参考プロジェクトで、起動しておく必要はありません。
 
@@ -48,7 +48,7 @@ cd ~/yolodemo
 | GPU | `~/yolofast/.venv-migraphx`、PyTorch ROCm、Radeon 8060S |
 | ONNX export | `~/yolofast/.venv-npu-export` |
 | 量子化 | `./.venv-quant`、AMD Quark |
-| NPU | `~/ryzenai_1_8/setup_ryzenai_env.sh`、VitisAI EP、`/dev/accel/accel0` |
+| NPU | `scripts/setup_ryzenai_1_9.sh`、VitisAI EP、`/dev/accel/accel0` |
 | 重み | `~/yolofast/models/yolo26n.pt` |
 | 校正レシピ | `~/yolofast/distribute/models/npu/accuracy95/perchannel/yolo26n-640-a16w8.json` と記載された60画像 |
 | Web | `uv`、Python 3.12、`requirements.txt`、Chrome |
@@ -164,14 +164,14 @@ NPUはyolofastの **A16W8・per-channel・MinMax・CLE** と60枚の校正画像
 
 モデル・CPUヘッド・参照モデルのSHA-256を確認します。採用モデルは `models/npu/selection.json` に記録し、NPUコンパイルキャッシュはモデルハッシュ別に `.cache/npu-448/` へ保存します。
 
-NPUの実行完了直後、CPUによる出力のパディング除去前に、`XCL_BO_SYNC_BO_FROM_DEVICE` で出力バッファを同期します。検証済みのRyzen AI 1.8／XRT 2.25.37に対応する補助ライブラリを、このリポジトリ内に用意しました。NPUの起動処理はランタイムのハッシュを確認し、`g++` と `/opt/xilinx/xrt/include` を使って `.cache/native/npu-output-sync/` に補助ライブラリを生成します。その後、ライブラリを事前読み込みする設定でNPUプロセスを一度だけ再実行します。各推論で同期の実行を確認し、ランナーの処理終了時にバッファ参照を解放します。検証結果の `output_sync` にライブラリのハッシュ、同期回数、未解放バッファ数を記録します。
+検証済みのRyzen AI 1.8／XRT 2.25.37とRyzen AI 1.9／XRT 2.26.89では、それぞれに対応する出力同期用の補助ライブラリを使用します。1.9ではXRTの実行完了後、CPU処理前に出力バッファを同期します。起動時にランタイムのハッシュを照合し、各推論で同期を確認します。NPUキャッシュはランタイムごとに分離します。1.9ではCPU参照との比較と、5セッションで合計1万回の入力切り替え検証に合格しました。
 
 対応するランタイムのハッシュは `app/workers/npu_output_sync.py` に記録しています。SDK／XRTを更新した場合は、互換性を検証してからハッシュを更新する必要があります。未検証の版では理由を表示して起動を停止します。独自のNPU専用起動プログラムでは、デバイスや共有メモリを開く前に `bootstrap_output_sync()` を呼び出します。通常のデモと `scripts/validate_models.py npu` には組み込み済みです。SDK・ドライバ本体を書き換える処理や、GPU・Webプロセスへの事前読み込み設定は追加していません。
 
 NPUセッションの作成・破棄を5回繰り返し、計10,000回の交互入力推論を再検証するには、次を実行します。
 
 ```bash
-source ~/ryzenai_1_8/setup_ryzenai_env.sh
+source scripts/setup_ryzenai_1_9.sh
 PYTHONPATH="$PWD" OPENBLAS_NUM_THREADS=1 python scripts/check_npu_output_sync.py
 ```
 

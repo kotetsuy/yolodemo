@@ -86,7 +86,7 @@ class Coordinator:
         if name == 'gpu':
             cmd = [str(YOLOFAST / '.venv-migraphx/bin/python'), *args]
         else:
-            setup = Path.home() / 'ryzenai_1_8/setup_ryzenai_env.sh'
+            setup = ROOT / 'scripts/setup_ryzenai_1_9.sh'
             # Shell quoting is necessary for paths; source changes only this child.
             script = f'source {shlex.quote(str(setup))} >/dev/null; export PYTHONPATH={shlex.quote(str(ROOT))}; exec python {shlex.join(args)}'
             cmd = ['bash', '-c', 'set -e; '+script]
