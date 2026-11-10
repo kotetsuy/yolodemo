@@ -1,5 +1,7 @@
 # YOLO26n GPU/NPU デモ
 
+このブランチの GPU ワーカーは gfx1150 を対象とし、起動時に GPU のアーキテクチャを確認します。MIGraphX キャッシュの既定先は `.cache/migraphx/gfx1150` です。gfx1150 対応の ROCm、PyTorch、MIGraphX 環境が別途必要です。以下の gfx1151 の検証結果は gfx1150 での動作や性能を保証するものではありません。
+
 ## GPU更新（2026-10-31）
 
 GPUワーカーを、yolofastの固定shape **FP32 ONNX＋MIGraphX** 方式に更新しました。DLPack入出力、固定GPU入力バッファ、MIGraphX側のHIPグラフ再生を使用します。`~/yolofast/.venv-migraphx` と `~/yolofast/models/migraphx/yolo26n-448-fp32.onnx` が必要です。`YOLOFAST_DIR` 指定時はその配下を参照します。起動前にyolofastで `bash scripts/setup_migraphx.sh` と `bash scripts/export_migraphx.sh` を実行してください。実行時の自動インストールを無効にし、CPUへのフォールバックを拒否します。GPU初期化時には既存のスモーク入力でFP32 PyTorchとの検出比較を行います。

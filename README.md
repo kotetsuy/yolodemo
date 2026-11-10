@@ -1,5 +1,7 @@
 # YOLO26n GPU/NPU Demo
 
+This branch targets gfx1150: the GPU worker checks the detected architecture at startup and defaults to `.cache/migraphx/gfx1150` for its MIGraphX cache. A gfx1150-compatible ROCm, PyTorch, and MIGraphX environment must be prepared separately. The gfx1151 validation results below do not establish correctness or performance on gfx1150.
+
 ## GPU update (2026-10-31)
 
 The GPU worker now uses yolofast's fixed-shape **FP32 ONNX + MIGraphX** path with DLPack IO binding, a reusable GPU input buffer, and native HIP graph replay. It requires `~/yolofast/.venv-migraphx` and `~/yolofast/models/migraphx/yolo26n-448-fp32.onnx` (or the equivalent paths under `YOLOFAST_DIR`). Prepare these in yolofast with `bash scripts/setup_migraphx.sh` and `bash scripts/export_migraphx.sh` before starting the demo. Automatic runtime installation is disabled; CPU fallback is rejected. GPU startup compares detections against FP32 PyTorch on the existing smoke inputs.

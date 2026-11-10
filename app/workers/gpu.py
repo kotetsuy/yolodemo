@@ -11,7 +11,7 @@ class GPU:
 
     def __init__(self, report_dir):
         os.environ['ORT_MIGRAPHX_HIP_GRAPH_ENABLE'] = '1'
-        os.environ.setdefault('ORT_MIGRAPHX_CACHE_DIR', str(ROOT / '.cache/migraphx'))
+        os.environ.setdefault('ORT_MIGRAPHX_CACHE_DIR', str(ROOT / '.cache/migraphx/gfx1150'))
         os.environ['YOLO_AUTOINSTALL'] = 'false'
         import torch
         import onnxruntime as ort
@@ -21,6 +21,9 @@ class GPU:
         self.torch = torch
         if not torch.version.hip or not torch.cuda.is_available():
             raise RuntimeError('ROCm GPU is unavailable')
+        architecture = torch.cuda.get_device_properties(0).gcnArchName.split(':', 1)[0]
+        if architecture != 'gfx1150':
+            raise RuntimeError(f'Expected gfx1150 GPU, detected {architecture}')
         torch.set_num_threads(4)
         model = YOLOFAST / 'models/migraphx/yolo26n-448-fp32.onnx'
         if not model.is_file():
@@ -39,7 +42,7 @@ class GPU:
         self.backend.io.bind_ortvalue_input(inputs[0].name, self.input_value)
         self.output = self.backend.bindings[0]
         self.names = self.backend.names
-        self.info = dict(backend='gpu', engine='migraphx', device=torch.cuda.get_device_name(0),
+        self.info = dict(backend='gpu', engine='migraphx', device=torch.cuda.get_device_name(0), architecture=architecture,
                          python=platform.python_version(), torch=torch.__version__, hip=torch.version.hip,
                          ultralytics=ultralytics.__version__, onnxruntime=ort.__version__, providers=providers,
                          shape=list(self.x.shape), precision='fp32', model_sha256=sha256(model),
