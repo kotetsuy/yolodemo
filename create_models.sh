@@ -38,9 +38,9 @@ if [[ "$task_check_only" == 0 ]]; then
     uv python install 3.12.13 --no-bin
     uv venv --managed-python --python 3.12.13 .venv-quant
   fi
-  # Use the CPU-only PyTorch wheel required by the original Quark environment.
+  # Install the pinned CPU-only PyTorch wheel from the PyTorch CPU index.
   uv pip install --python "$task_quant_python" --no-deps \
-    --index-url https://download.pytorch.org/whl/cpu 'torch==2.6.0+cpu'
+    --index-url https://download.pytorch.org/whl/cpu 'torch==2.13.0+cpu'
   uv pip install --python "$task_quant_python" -r requirements-quant.txt
 fi
 if [[ ! -x "$task_quant_python" ]]; then

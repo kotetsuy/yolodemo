@@ -78,7 +78,7 @@ All outputs under `models/`, including ONNX files, CPU heads, provenance JSON an
 
 ### Local quantization environment
 
-`./create_models.sh --setup-quant` creates `.venv-quant` in this repository using Python 3.12.13 installed under `.python/`. It installs the versions recorded in `requirements-quant.txt`, including AMD Quark 0.11.2 and CPU-only PyTorch 2.6.0. Downloads require network access on the first setup. The normal model creation command also performs this setup automatically. Keep `.python/` alongside the venv; do not copy an existing venv from another project.
+`./create_models.sh --setup-quant` creates `.venv-quant` in this repository using Python 3.12.13 installed under `.python/`. It installs the versions recorded in `requirements-quant.txt`, including AMD Quark 0.13 and CPU-only PyTorch 2.13.0. Downloads require network access on the first setup. The normal model creation command also performs this setup automatically. The updated quantization environment passed calibration and INT16 conversion checks; newly generated models must still pass the hardware validation before adoption. Keep `.python/` alongside the venv; do not copy an existing venv from another project.
 
 Quantization no longer uses `~/yolotest/.venv-quant`. Calibration and smoke-test images still come from `~/yolotest`, and export/GPU/NPU environments retain their documented locations. Both `.venv-quant/` and `.python/` are excluded from Git; `requirements-quant.txt` is included so the environment can be recreated. The old environment remains available to its original project. Quark may compile its CPU custom operators on first import, so a native C++ compiler toolchain must also be available.
 

@@ -78,7 +78,7 @@ cd ~/yolodemo
 
 ### ローカル量子化環境
 
-`./create_models.sh --setup-quant` は、このリポジトリ内の `.python/` にPython 3.12.13を導入し、`.venv-quant` を新規作成します。`requirements-quant.txt` に記録した版（AMD Quark 0.11.2、CPU版PyTorch 2.6.0など）をインストールします。初回のダウンロードにはネットワーク接続が必要です。通常のモデル生成コマンドでも、この準備を自動実行します。`.python/` はvenvと一緒に保持し、他プロジェクトのvenvはコピーしないでください。
+`./create_models.sh --setup-quant` は、このリポジトリ内の `.python/` にPython 3.12.13を導入し、`.venv-quant` を新規作成します。`requirements-quant.txt` に記録した版（AMD Quark 0.13、CPU版PyTorch 2.13.0など）をインストールします。初回のダウンロードにはネットワーク接続が必要です。通常のモデル生成コマンドでも、この準備を自動実行します。更新後の量子化環境は校正とINT16変換を検証済みですが、新たに生成したモデルは採用前に実機検証が必要です。`.python/` はvenvと一緒に保持し、他プロジェクトのvenvはコピーしないでください。
 
 量子化では `~/yolotest/.venv-quant` を使用しなくなりました。校正・検証画像は引き続き `~/yolotest` を参照し、エクスポート・GPU・NPU環境も記載の場所を使います。`.venv-quant/` と `.python/` はGit対象外で、再作成用の `requirements-quant.txt` はGit対象です。旧環境は元のプロジェクト用に保持しています。Quarkは初回import時にCPU用のカスタム演算をコンパイルする場合があるため、C++コンパイラ一式も必要です。
 
