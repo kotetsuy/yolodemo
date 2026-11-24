@@ -1,21 +1,17 @@
 # YOLO26n GPU/NPU デモ
 
-## GPU更新（2026-10-31）
-
-GPUワーカーを、yolofastの固定shape **FP32 ONNX＋MIGraphX** 方式に更新しました。DLPack入出力、固定GPU入力バッファ、MIGraphX側のHIPグラフ再生を使用します。`~/yolofast/.venv-migraphx` と `~/yolofast/models/migraphx/yolo26n-448-fp32.onnx` が必要です。`YOLOFAST_DIR` 指定時はその配下を参照します。起動前にyolofastで `bash scripts/setup_migraphx.sh` と `bash scripts/export_migraphx.sh` を実行してください。実行時の自動インストールを無効にし、CPUへのフォールバックを拒否します。GPU初期化時には既存のスモーク入力でFP32 PyTorchとの検出比較を行います。
-
-以下の旧GPU FP16・PyTorchグラフの説明とGPU環境パスは、この節の構成に置き換わります。NPUの手順は従来どおりです。yolofastの5分平均609.4 FPSは推論単体の記録で、入力コピー・前処理・結果転送・配信を含みません。デモ全体で600 FPSを保証する値ではありません。ライブベンチマークのGPU目標値を600 FPSに変更しました。
-
-```bash
-.venv/bin/python scripts/benchmark_demo.py --backends gpu --seconds 30 --repeats 3
-```
-
-
 [English](README.md) | [日本語](READMEJ.md)
 
 Radeon GPUとRyzen AI NPUを切り替えて物体検出を行うローカルデモです。Chromeで検出映像を表示し、2位置スライダーで演算器を切り替え、複数のUSBカメラから1台を選択できます。両方の推論入力は **448×448、batch=1** で、表示映像の縦横比を保ちます。
 
 カメラには **1920×1080・30FPS** を要求し、推論FPSと入力FPSを分けて表示します。モデルはローカルで生成し、リポジトリには含めません。
+
+
+## GPU更新（ROCm 10.2）
+
+GPUワーカーの既定は ROCm 10.2 の FP32 ONNX＋MIGraphX と HIP グラフ再生です。`bash scripts/setup_migraphx_rocm102.sh` で独立した Python 3.12 環境を作成し、yolofast で `bash scripts/export_migraphx.sh` を実行して ONNX モデルを準備してください。起動時に8入力の検出結果を FP32 PyTorch と比較します。`YOLOFAST_DIR` で yolofast の場所を変更できます。
+
+PyTorch 経路を使用する場合は、yolofast で `bash scripts/setup_rocm102_py314.sh` を実行し、デモまたは `create_models.sh` の実行前に `YOLODEMO_GPU_ENGINE=pytorch` を設定してください。従来の ROCm 10.0 MIGraphX の測定結果は、ROCm 10.2 の性能を示すものではありません。
 
 ## 関連プロジェクト
 
@@ -26,7 +22,7 @@ Radeon GPUとRyzen AI NPUを切り替えて物体検出を行うローカルデ�
 
 [yolofast_pubの最新README](https://github.com/kotetsuy/yolofast_pub/blob/main/README.md) には、公開版単体のONNX環境に加え、**yolodemo用の追加環境**の手順が記載されています。このデモでは追加環境の節に従ってGPU・ONNX出力環境を用意し、このリポジトリで `./create_models.sh --setup-quant` を実行します。公開版単体の `~/yolofast/.venv` は別用途で、このデモは参照しません。
 
-記載の配置は現在のスクリプトと一致します。GPU・ONNX出力は `~/yolofast` 内、量子化はこのリポジトリの `.venv-quant`、NPU設定は `scripts/setup_ryzenai_1_9.sh` です。`YOLOFAST_DIR` が変更するのはyolofastのルートだけです。重み、元の60画像の校正レシピ、`~/yolotest` 内の画像、NPU SDKは別途用意する必要があります。公開版の画像マニフェストはデモのレシピの代用にはなりません。新たに記載された独立CPUエクスポート環境の生成物は、モデル生成・実機検証に合格してから採用してください。過去の測定記録はこの新環境で測定したものではありません。
+記載の配置は現在のスクリプトと一致します。GPU環境はこのリポジトリ内、ONNX出力は `~/yolofast` 内、量子化はこのリポジトリの `.venv-quant`、NPU設定は `scripts/setup_ryzenai_1_9.sh` です。`YOLOFAST_DIR` が変更するのはyolofastのルートだけです。重み、元の60画像の校正レシピ、`~/yolotest` 内の画像、NPU SDKは別途用意する必要があります。公開版の画像マニフェストはデモのレシピの代用にはなりません。新たに記載された独立CPUエクスポート環境の生成物は、モデル生成・実機検証に合格してから採用してください。過去の測定記録はこの新環境で測定したものではありません。
 
 LLaVA-NPUは参考プロジェクトで、起動しておく必要はありません。
 
@@ -45,7 +41,7 @@ cd ~/yolodemo
 
 | 用途 | 環境 |
 |---|---|
-| GPU | `~/yolofast/.venv-migraphx`、PyTorch ROCm、Radeon 8060S |
+| GPU | `./.venv-migraphx-rocm102`、MIGraphXとPyTorch ROCm 10.2、Radeon 8060S |
 | ONNX export | `~/yolofast/.venv-npu-export` |
 | 量子化 | `./.venv-quant`、AMD Quark |
 | NPU | `scripts/setup_ryzenai_1_9.sh`、VitisAI EP、`/dev/accel/accel0` |
@@ -156,7 +152,7 @@ GPUは同期を含み、NPUはINT16量子化・NPU実行・CPU分類ヘッド・
 
 ## 推論方式と数値検証
 
-GPUはFP32 MIGraphXのHIPグラフ再生を使い、GPU同期完了後にカウンターを増やします。起動時に8入力をFP32 PyTorchと比較し、信頼度0.25以上で検出数・クラス一致、IoU≥0.95、スコア差≤0.03を要求します。GPUモデルのハッシュとランタイムの版を検証レポートに保存します。
+既定のGPUはFP32 MIGraphXのHIPグラフ再生を使い、GPU同期完了後にカウンターを増やします。起動時に8入力をFP32 PyTorchと比較し、信頼度0.25以上で検出数・クラス一致、IoU≥0.95、スコア差≤0.03を要求します。GPUモデルのハッシュとランタイムの版を検証レポートに保存します。
 
 NPUはyolofastの **A16W8・per-channel・MinMax・CLE** と60枚の校正画像を引き継ぎます。448で再校正したQDQパラメーターを保持し、バックボーンと枠の推論をNPU、分類ヘッドと直前のSiLUをCPUで実行します。全NPU構成ではスコア差が基準を超えたため、この構成で改善しました。CPUヘッドとINT16入力量子化、Top-kを含む実際のループ速度を表示します。
 

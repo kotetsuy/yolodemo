@@ -6,16 +6,17 @@ from app.model_utils import WEIGHTS, YOLOFAST, ROOT, cases, sha256, write_json, 
 from app.preprocess import SIZE
 
 
-class GPU:
+class MIGraphXGPU:
     boundary = 'cached GPU FP32 input -> MIGraphX HIP graph -> synchronized GPU detections; live loop includes input updates and sampled output copies'
 
     def __init__(self, report_dir):
         os.environ['ORT_MIGRAPHX_HIP_GRAPH_ENABLE'] = '1'
-        os.environ.setdefault('ORT_MIGRAPHX_CACHE_DIR', str(ROOT / '.cache/migraphx'))
+        os.environ.setdefault('ORT_MIGRAPHX_CACHE_DIR', str(ROOT / '.cache/migraphx-rocm102'))
         os.environ['YOLO_AUTOINSTALL'] = 'false'
         import torch
         import onnxruntime as ort
         import ultralytics
+        from importlib.metadata import version
         from ultralytics import YOLO
         from ultralytics.nn.backends.onnx import ONNXBackend
         self.torch = torch
@@ -42,6 +43,7 @@ class GPU:
         self.info = dict(backend='gpu', engine='migraphx', device=torch.cuda.get_device_name(0),
                          python=platform.python_version(), torch=torch.__version__, hip=torch.version.hip,
                          ultralytics=ultralytics.__version__, onnxruntime=ort.__version__, providers=providers,
+                         migraphx=version('migraphx-libs'), migraphx_ep=version('onnxruntime-ep-migraphx'),
                          shape=list(self.x.shape), precision='fp32', model_sha256=sha256(model),
                          weights_sha256=sha256(WEIGHTS), hip_graph=True, prebind=True,
                          boundary=self.boundary, validation_criteria=dict(confidence=.25, min_iou=.95, max_score_diff=.03),
@@ -84,3 +86,78 @@ class GPU:
 
     def close(self):
         self.torch.cuda.synchronize()
+
+
+class TorchGPU:
+    boundary = 'GPU FP32 input -> PyTorch HIP graph -> synchronized GPU detections; live loop includes input updates and sampled output copies'
+
+    def __init__(self, report_dir):
+        os.environ['YOLO_AUTOINSTALL'] = 'false'
+        import torch
+        import ultralytics
+        from ultralytics import YOLO
+        self.torch = torch
+        if not torch.version.hip or not torch.cuda.is_available():
+            raise RuntimeError('ROCm GPU is unavailable')
+        torch.set_num_threads(4)
+        self.model = YOLO(str(WEIGHTS)).model.eval().cuda().float()
+        self.model.end2end = True
+        self.model.fuse(verbose=False)
+        self.names = self.model.names
+        self.x = torch.zeros((1, 3, SIZE, SIZE), device='cuda', dtype=torch.float32)
+        self.host = torch.empty(self.x.shape, dtype=torch.float32, pin_memory=True)
+        self.info = dict(backend='gpu', engine='pytorch', device=torch.cuda.get_device_name(0),
+                         python=platform.python_version(), torch=torch.__version__, hip=torch.version.hip,
+                         ultralytics=ultralytics.__version__, shape=list(self.x.shape), precision='fp32',
+                         weights_sha256=sha256(WEIGHTS), hip_graph=True, boundary=self.boundary, validation=[])
+        try:
+            with torch.inference_mode():
+                stream = torch.cuda.Stream()
+                stream.wait_stream(torch.cuda.current_stream())
+                with torch.cuda.stream(stream):
+                    for _ in range(100):
+                        self.model(self.x)
+                torch.cuda.current_stream().wait_stream(stream)
+                torch.cuda.synchronize()
+                self.graph = torch.cuda.CUDAGraph()
+                with torch.cuda.graph(self.graph, stream=stream):
+                    self.output = self.model(self.x)
+                if tuple(self.output[0].shape) != (1, 300, 6):
+                    raise RuntimeError('Expected 300x6 end2end detections')
+                for record, x in cases():
+                    self.prepare(x)
+                    expected = self.model(self.x)[0][0].cpu().numpy()
+                    self.infer()
+                    comparison = compare_detections(expected, self.detections(), min_iou=.95, max_score_diff=.03)
+                    self.info['validation'].append(dict(input=record, **comparison))
+                    if not comparison['passed']:
+                        raise RuntimeError('PyTorch eager/graph detection comparison failed')
+            self.info['validation_passed'] = True
+            write_json(report_dir / 'gpu-validation.json', self.info)
+        except Exception as exc:
+            write_json(report_dir / 'gpu-validation.json', dict(self.info, validation_passed=False, error=str(exc)))
+            raise
+
+    def prepare(self, x):
+        self.host.copy_(self.torch.from_numpy(x))
+        self.x.copy_(self.host, non_blocking=True)
+        self.torch.cuda.synchronize()
+
+    def infer(self):
+        self.graph.replay()
+        self.torch.cuda.synchronize()
+
+    def detections(self):
+        return self.output[0][0].float().cpu().numpy().copy()
+
+    def close(self):
+        self.torch.cuda.synchronize()
+
+
+def GPU(report_dir):
+    engine = os.environ.get('YOLODEMO_GPU_ENGINE', 'migraphx')
+    if engine == 'pytorch':
+        return TorchGPU(report_dir)
+    if engine == 'migraphx':
+        return MIGraphXGPU(report_dir)
+    raise ValueError(f'Unknown YOLODEMO_GPU_ENGINE: {engine}')

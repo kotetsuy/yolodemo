@@ -1,21 +1,17 @@
 # YOLO26n GPU/NPU Demo
 
-## GPU update (2026-10-31)
-
-The GPU worker now uses yolofast's fixed-shape **FP32 ONNX + MIGraphX** path with DLPack IO binding, a reusable GPU input buffer, and native HIP graph replay. It requires `~/yolofast/.venv-migraphx` and `~/yolofast/models/migraphx/yolo26n-448-fp32.onnx` (or the equivalent paths under `YOLOFAST_DIR`). Prepare these in yolofast with `bash scripts/setup_migraphx.sh` and `bash scripts/export_migraphx.sh` before starting the demo. Automatic runtime installation is disabled; CPU fallback is rejected. GPU startup compares detections against FP32 PyTorch on the existing smoke inputs.
-
-This supersedes the older GPU FP16/PyTorch graph descriptions and GPU runtime paths below; the NPU workflow is unchanged. yolofast reports 609.4 FPS over five minutes for inference alone. That excludes input copies, preprocessing, output transfers and streaming, so it is not a live demo performance guarantee. The live benchmark now defaults to a 600 FPS GPU target:
-
-```bash
-.venv/bin/python scripts/benchmark_demo.py --backends gpu --seconds 30 --repeats 3
-```
-
-
 [English](README.md) | [日本語](READMEJ.md)
 
 A local object detection demo for the Radeon GPU and Ryzen AI NPU. View live detections in Chrome, switch between backends with a two-position slider, and choose one of several connected USB cameras. Both backends use **448×448 input with batch size 1**, while the displayed video retains its original aspect ratio.
 
 The demo requests **1920×1080 at 30 FPS** from the camera and shows inference FPS separately from input FPS. Models are generated locally and are not included in this repository.
+
+
+## GPU update (ROCm 10.2)
+
+The default GPU worker uses FP32 ONNX and MIGraphX with ROCm 10.2 and HIP graph replay. Run `bash scripts/setup_migraphx_rocm102.sh` to create the independent Python 3.12 environment, and run `bash scripts/export_migraphx.sh` in yolofast to prepare the ONNX model. The worker validates eight inputs against FP32 PyTorch at startup. `YOLOFAST_DIR` changes the yolofast root.
+
+The alternative PyTorch path uses yolofast's `.venv-rocm102-py314`; prepare it with `bash scripts/setup_rocm102_py314.sh` in yolofast and set `YOLODEMO_GPU_ENGINE=pytorch` before starting the demo or running `create_models.sh`. Existing ROCm 10.0 MIGraphX measurements do not establish performance on ROCm 10.2.
 
 ## Related Projects
 
@@ -26,7 +22,7 @@ The demo requests **1920×1080 at 30 FPS** from the camera and shows inference F
 
 The [yolofast_pub README](https://github.com/kotetsuy/yolofast_pub/blob/main/README.md) now covers both its standalone ONNX environment and **additional environments for yolodemo**. For this demo, follow its additional-environment section to prepare the GPU and ONNX export environments, then run `./create_models.sh --setup-quant` here. The standalone `~/yolofast/.venv` is a separate environment and is not used by this demo.
 
-The documented demo paths match the scripts: GPU and export under `~/yolofast`, quantization under this repository's `.venv-quant`, and NPU setup at `scripts/setup_ryzenai_1_9.sh`. `YOLOFAST_DIR` changes the yolofast root only. Weights, the original 60-image calibration recipe, images under `~/yolotest`, and the NPU SDK still require separate preparation. The public ONNX image manifest is not a replacement for this demo's recipe. The newly documented independent CPU export environment must pass model generation and hardware validation before its outputs are adopted; it was not used for the previously recorded measurements.
+The documented demo paths match the scripts: GPU under this repository, export under `~/yolofast`, quantization under this repository's `.venv-quant`, and NPU setup at `scripts/setup_ryzenai_1_9.sh`. `YOLOFAST_DIR` changes the yolofast root only. Weights, the original 60-image calibration recipe, images under `~/yolotest`, and the NPU SDK still require separate preparation. The public ONNX image manifest is not a replacement for this demo's recipe. The newly documented independent CPU export environment must pass model generation and hardware validation before its outputs are adopted; it was not used for the previously recorded measurements.
 
 LLaVA-NPU is a reference project and does not need to be running.
 
@@ -45,7 +41,7 @@ This table matches the yolodemo additional-environment section in the upstream R
 
 | Purpose | Environment |
 |---|---|
-| GPU | `~/yolofast/.venv-migraphx`, PyTorch ROCm, Radeon 8060S |
+| GPU | `./.venv-migraphx-rocm102`, MIGraphX and PyTorch ROCm 10.2, Radeon 8060S |
 | ONNX export | `~/yolofast/.venv-npu-export` |
 | Quantization | `./.venv-quant`, AMD Quark |
 | NPU | `scripts/setup_ryzenai_1_9.sh`, VitisAI EP, `/dev/accel/accel0` |
@@ -156,7 +152,7 @@ Backend switching waits for the previous worker to stop processing, updates the 
 
 ## Inference and Numerical Validation
 
-The GPU uses FP32 MIGraphX with native HIP graph replay and increments its counter after GPU synchronization. Startup compares eight inputs against FP32 PyTorch at confidence 0.25, requiring matching detection counts and classes, IoU≥0.95 and score differences≤0.03. GPU model hashes and runtime versions are saved in the validation report.
+The default GPU uses FP32 MIGraphX with HIP graph replay and increments its counter after GPU synchronization. Startup compares eight inputs against FP32 PyTorch at confidence 0.25, requiring matching detection counts and classes, IoU≥0.95 and score differences≤0.03. GPU model hashes and runtime versions are saved in the validation report.
 
 The NPU retains yolofast's **A16W8, per-channel, MinMax, and CLE** settings and its 60 calibration images. It preserves the QDQ parameters recalibrated at 448, runs the backbone and box inference on the NPU, and runs the classification head and its preceding SiLU on the CPU. This arrangement improved the score differences that exceeded the acceptance criteria in the full-NPU configuration. The displayed loop speed includes the CPU head, INT16 input quantization, and Top-k.
 

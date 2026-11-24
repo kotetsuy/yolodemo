@@ -84,7 +84,12 @@ class Coordinator:
                    YOLO_CONFIG_DIR=str(ROOT / '.cache/ultralytics'), OPENBLAS_NUM_THREADS='1')
         args = ['-m', 'app.workers.run', '--backend', name, '--bus', str(self.path), '--report-dir', str(self.folder)]
         if name == 'gpu':
-            cmd = [str(YOLOFAST / '.venv-migraphx/bin/python'), *args]
+            engine = env.get('YOLODEMO_GPU_ENGINE', 'migraphx')
+            venv = {'pytorch': YOLOFAST / '.venv-rocm102-py314', 'migraphx': ROOT / '.venv-migraphx-rocm102'}.get(engine)
+            if venv is None:
+                self.workers[name].update(state='error', error=f'Unknown YOLODEMO_GPU_ENGINE: {engine}')
+                return
+            cmd = [str(venv / 'bin/python'), *args]
         else:
             setup = ROOT / 'scripts/setup_ryzenai_1_9.sh'
             # Shell quoting is necessary for paths; source changes only this child.

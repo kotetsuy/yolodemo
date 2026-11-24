@@ -1,6 +1,7 @@
 # Local environments and runtime caches
 .venv/
 .venv-quant/
+.venv-migraphx-rocm102/
 .python/
 .cache/
 __pycache__/
