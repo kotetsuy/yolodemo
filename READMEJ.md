@@ -11,6 +11,8 @@ Radeon GPUとRyzen AI NPUを切り替えて物体検出を行うローカルデ�
 
 GPUワーカーの既定は ROCm 10.2 の FP32 ONNX＋MIGraphX と HIP グラフ再生です。`bash scripts/setup_migraphx_rocm102.sh` で独立した Python 3.12 環境を作成し、yolofast で `bash scripts/export_migraphx.sh` を実行して ONNX モデルを準備してください。起動時に8入力の検出結果を FP32 PyTorch と比較します。`YOLOFAST_DIR` で yolofast の場所を変更できます。
 
+GPUワーカーは `/opt/rocm/extras-10/lib` にあるシステムの MIGraphX を使用し、起動時に読み込まれたライブラリのパスを確認します。ONNX Runtime の MIGraphX execution provider は Python 仮想環境に置きます。
+
 PyTorch 経路を使用する場合は、yolofast で `bash scripts/setup_rocm102_py314.sh` を実行し、デモまたは `create_models.sh` の実行前に `YOLODEMO_GPU_ENGINE=pytorch` を設定してください。従来の ROCm 10.0 MIGraphX の測定結果は、ROCm 10.2 の性能を示すものではありません。
 
 ## 関連プロジェクト

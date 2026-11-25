@@ -11,6 +11,8 @@ The demo requests **1920×1080 at 30 FPS** from the camera and shows inference F
 
 The default GPU worker uses FP32 ONNX and MIGraphX with ROCm 10.2 and HIP graph replay. Run `bash scripts/setup_migraphx_rocm102.sh` to create the independent Python 3.12 environment, and run `bash scripts/export_migraphx.sh` in yolofast to prepare the ONNX model. The worker validates eight inputs against FP32 PyTorch at startup. `YOLOFAST_DIR` changes the yolofast root.
 
+The GPU worker loads system MIGraphX from `/opt/rocm/extras-10/lib` and verifies the loaded library paths at startup. The ONNX Runtime MIGraphX execution provider remains in the Python environment.
+
 The alternative PyTorch path uses yolofast's `.venv-rocm102-py314`; prepare it with `bash scripts/setup_rocm102_py314.sh` in yolofast and set `YOLODEMO_GPU_ENGINE=pytorch` before starting the demo or running `create_models.sh`. Existing ROCm 10.0 MIGraphX measurements do not establish performance on ROCm 10.2.
 
 ## Related Projects

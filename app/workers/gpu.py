@@ -19,6 +19,13 @@ class MIGraphXGPU:
         from importlib.metadata import version
         from ultralytics import YOLO
         from ultralytics.nn.backends.onnx import ONNXBackend
+        # Ultralytics locates the C library through this package's __file__.
+        # Point its registration helper at the system installation instead.
+        import sys
+        import types
+        system_migraphx = types.ModuleType('migraphx_libs')
+        system_migraphx.__file__ = '/opt/rocm/extras-10/lib/__init__.py'
+        sys.modules['migraphx_libs'] = system_migraphx
         self.torch = torch
         if not torch.version.hip or not torch.cuda.is_available():
             raise RuntimeError('ROCm GPU is unavailable')
@@ -27,6 +34,11 @@ class MIGraphXGPU:
         if not model.is_file():
             raise RuntimeError(f'MIGraphX model missing: {model}; run yolofast scripts/export_migraphx.sh')
         self.backend = ONNXBackend(str(model), device=torch.device('cuda:0'))
+        with open('/proc/self/maps', encoding='utf-8') as maps:
+            libraries = {line.split()[-1] for line in maps if '/libmigraphx' in line and '/libmigraphx-ep.so' not in line and '/' in line.split()[-1]}
+        system_root = '/opt/rocm/extras-10/lib/'
+        if not libraries or any(not path.startswith(system_root) for path in libraries):
+            raise RuntimeError(f'Expected system MIGraphX libraries under {system_root}; loaded: {sorted(libraries)}')
         providers = self.backend.session.get_providers()
         if self.backend.device.type != 'cuda' or not self.backend.use_io_binding or providers[0] != 'MIGraphXExecutionProvider':
             raise RuntimeError('MIGraphX GPU with IO binding required; CPU fallback rejected')
@@ -43,7 +55,7 @@ class MIGraphXGPU:
         self.info = dict(backend='gpu', engine='migraphx', device=torch.cuda.get_device_name(0),
                          python=platform.python_version(), torch=torch.__version__, hip=torch.version.hip,
                          ultralytics=ultralytics.__version__, onnxruntime=ort.__version__, providers=providers,
-                         migraphx=version('migraphx-libs'), migraphx_ep=version('onnxruntime-ep-migraphx'),
+                         migraphx='system', migraphx_libraries=sorted(libraries), migraphx_ep=version('onnxruntime-ep-migraphx'),
                          shape=list(self.x.shape), precision='fp32', model_sha256=sha256(model),
                          weights_sha256=sha256(WEIGHTS), hip_graph=True, prebind=True,
                          boundary=self.boundary, validation_criteria=dict(confidence=.25, min_iou=.95, max_score_diff=.03),

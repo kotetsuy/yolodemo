@@ -89,6 +89,9 @@ class Coordinator:
             if venv is None:
                 self.workers[name].update(state='error', error=f'Unknown YOLODEMO_GPU_ENGINE: {engine}')
                 return
+            if engine == 'migraphx':
+                system_lib = '/opt/rocm/extras-10/lib'
+                env['LD_LIBRARY_PATH'] = ':'.join(filter(None, (system_lib, system_lib + '/migraphx/lib', env.get('LD_LIBRARY_PATH'))))
             cmd = [str(venv / 'bin/python'), *args]
         else:
             setup = ROOT / 'scripts/setup_ryzenai_1_9.sh'
